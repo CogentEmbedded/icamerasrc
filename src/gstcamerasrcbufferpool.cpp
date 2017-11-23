@@ -730,8 +730,7 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
   int stream_id = pool->stream_id;
   GST_INFO("CameraId=%d, StreamId=%d Thread ID=%ld  .", camerasrc->device_id, pool->stream_id, gettid());
 
-  GstBuffer *gbuffer = pool->buffers[pool->acquire_buffer_index%pool->number_allocated];
-  GstCamerasrcMeta *meta = GST_CAMERASRC_META_GET(gbuffer);
+  camera_buffer_t *out_buffer;
   int sequence_diff = 0;
   gboolean do_weaving = true;
   const char *buffer_field;
@@ -739,15 +738,17 @@ gst_camerasrc_buffer_pool_acquire_buffer (GstBufferPool * bpool, GstBuffer ** bu
   if (camerasrc->print_fps)
       gst_camerasrc_update_fps(camerasrc, stream_id);
 
-  int ret = camera_stream_dqbuf(camerasrc->device_id, stream_id, &meta->buffer);
+  int ret = camera_stream_dqbuf(camerasrc->device_id, stream_id, &out_buffer);
   if (ret != 0) {
     GST_ERROR("CameraId=%d, StreamId=%d dqbuf failed ret %d.",
       camerasrc->device_id, pool->stream_id, ret);
     return GST_FLOW_ERROR;
   }
 
-  GstClockTime timestamp = meta->buffer->timestamp;
-  camerasrc->streams[stream_id].time_end = meta->buffer->timestamp;
+  GstBuffer* gbuffer = pool->buffers[out_buffer->index];
+  GstCamerasrcMeta *meta = GST_CAMERASRC_META_GET(gbuffer);
+  GstClockTime timestamp = out_buffer->timestamp;
+  camerasrc->streams[stream_id].time_end = out_buffer->timestamp;
 
   if (camerasrc->print_field)
     g_print("buffer field: %d    Camera Id: %d    buffer sequence: %d\n",
